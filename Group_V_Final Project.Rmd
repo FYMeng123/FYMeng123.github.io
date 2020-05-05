@@ -1,0 +1,1081 @@
+---
+title: "The Impact of Terrorism Attacks"
+author: "Group V: Fangyu Meng, Fengyi Gao, Shuhe, Ma"
+date: "May, 2020"
+output:
+  prettydoc::html_pretty:
+  theme: cayman
+
+---
+```{r Setup, message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+library(knitr)
+library(prettydoc)
+library(tidyverse)
+library(jsonlite)
+library(dplyr)
+library(ggplot2)
+library(ggthemes)
+library(dplyr)
+library(stringr)
+library(nnet)
+library(DT)
+library(formattable)
+library(tidytext)
+library(SnowballC)
+library(tm)
+library(lsa)
+library(stargazer)
+library(wordcloud2)
+library(quanteda)
+library(plotly)
+library(countrycode)
+library(leaflet)
+library(RColorBrewer)
+library(geosphere)
+library(rgeos)
+library(lubridate)
+library(spectralGP)
+library(matrixStats)
+library(rgdal)
+library(htmltools)
+library(ggmap)
+library(lexicon)
+library(textdata)
+library(syuzhet)
+library(wordcloud)
+library(plotrix)
+library(Knoema)
+library(grid)
+library(ggrepel)
+library(gifski)
+library(gganimate)
+library(httr)
+Sys.setlocale('LC_ALL','C')
+opts_chunk$set(fig.path="images/",
+               cache.path="cache/",
+               cache=FALSE,
+               echo=TRUE,
+               message=FALSE,
+               warning=FALSE)  
+```
+# **Introduction:**
+
+Recently, U.S. signed peace deal with Taliban after nearly 20 years of war in Afghanistan. It seemed like more efforts were done towards the counter-terrorism operations worldwide. In this project, we are going to utilize some datasets. Our goal is to visualize the changes in the essential patterns of the terrorism attacks over the world. In addition to this, we are also interested in the impact that those attacks brought in the past few decades. Therefore, other index like GDP, citizen happiness level, and military expenditure will be also studied. 
+
+# **Material:**
+
+## [Process book](https://github.com/Shuhe-Ma/Group_V_Terrorism/blob/master/Process%20book/process_book.pdf) 
+
+## [Full code](https://github.com/Shuhe-Ma/Group_V_Terrorism/blob/master/Group_V_Final%20Project.Rmd)
+
+## Data:
+
+[Global Terrorism Database (GTD):](https://www.start.umd.edu/gtd/) It provides information on domestic and international terrorist events over the world since 1970. All details including date, location, the weapon used, target, the number of casualties, and group responsible.
+
+[GDP and Population Dataset:](knoema.com/IMFWEO2019Oct/imf-world-economic-outlook-weo-october-2019) The dataset, World Economic Outlook, can give us the historic GDP, population in each country.
+
+[World Happiness Report](https://worldhappiness.report/): It has the records of most countries happiness score since 2000s.
+
+[World Military Expenditure:](https://data.worldbank.org/indicator/MS.MIL.XPND.CD) It collected military spending in each country from 1960 to 2019.
+
+# **Analysis and Visualiazation**
+
+## *Part 1: Worldwide*
+
+## 1). The Patterns of Global Terrorism Attacks
+
+```{r include=FALSE}
+d <- read_csv("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/globalterrorismdb_0919dist.csv")
+incidents = read.csv("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/mengfy/globalterrorismdb_0919dist.csv")
+incidents_us = subset(incidents, incidents$country_txt == 'United States')
+```
+```{r echo=FALSE}
+gdp <- read_csv("C:/Users/mmahe/Documents/gdp.csv")
+
+row.names(gdp) = NULL
+row.names(gdp) = gdp$X1
+gdp = gdp %>% select(-1)
+
+```
+```{r echo=FALSE}
+colnames(gdp) <- str_sub(colnames(gdp), 1L, -61L)
+colnames(gdp) <- str_sub(colnames(gdp), 1L, -1L)
+rownames(gdp) <- str_sub(rownames(gdp), 1L, -7L)
+gdp <- as.data.frame(t(gdp))
+gdp <- rownames_to_column(gdp, "Country")
+```
+
+```{r echo=FALSE}
+happiness <- read.csv("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/WHR20_DataForTable2.csv")
+```
+
+```{r echo=FALSE}
+global <- read_csv("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/globalterrorismdb_0919dist.csv")
+```
+## The top 10 dangerous countries over the years
+
+This racing bar chart shows 10 countries with the most number of incidents since 1970.
+
+```{r echo=FALSE}
+library(gganimate)
+```
+
+```{r echo=FALSE}
+global_attack <- global  %>%
+  group_by(country_txt, iyear) %>%
+  summarize(num_attack = n()) %>%
+  arrange(desc(num_attack))
+```
+
+```{r echo=FALSE}
+attack_formatted <- global_attack %>%
+    group_by(iyear) %>%
+    arrange(-num_attack) %>%
+    mutate(rank=row_number()) %>%
+    filter(rank<=10)
+```
+```{r echo=FALSE}
+attack_formatted$continent <- countrycode(sourcevar = attack_formatted$country_txt,
+                            origin = "country.name",
+                            destination = "continent")
+```
+```{r echo=FALSE}
+bar_race <- attack_formatted %>%  
+  ggplot() +  
+  aes(xmin = 0 ,  
+      xmax = num_attack) +  
+  aes(ymin = rank - .45,  
+      ymax = rank + .45,  
+      y = rank) +  
+  facet_wrap(~ iyear) +  
+  geom_rect(alpha = .7) +  
+  aes(fill = continent) +  
+  scale_x_continuous(  
+    limits = c(-1200, 4000),  
+    breaks = c(0, 1000, 2000, 3000)) +  
+  geom_text(col = "gray13",  
+            hjust = "right",  
+            aes(label = country_txt),  
+            x = -50) +  
+  scale_y_reverse() +  
+  labs(fill = NULL) +  
+  labs(x = 'Total Attacks') +  
+  labs(y = "") +  
+  labs(title='The Number of Total Attacks',
+             subtitle='Year: {round(frame_time,0)}') +
+  facet_null() +  
+  scale_x_continuous(  
+    limits = c(-1000, 4000),  
+    breaks = c(0, 1000, 2000, 3000)) +  
+  theme_tufte() +
+  theme(axis.text.y = element_blank()) +
+  theme(axis.ticks.y = element_blank()) +
+  theme(axis.line.y = element_blank()) +
+  aes(group = country_txt)  +
+  transition_time(iyear)
+```
+```{r echo=FALSE}
+knitr::include_graphics("C:/Users/mmahe/Desktop/gganim.gif")
+```
+
+## Casualties in Global Terrorism
+
+Use the Tree Map vasulize the casualities in each year: we can get that 2015, 2006, 1997, 1987 are one of the most severe year to suffer the global terrorism.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(countrycode)
+global$casualties <- global$nkill + global$nwound
+
+global$region <- countrycode(sourcevar = global$country_txt,
+                            origin = "country.name",
+                            destination = "continent")
+
+global_region <- global %>%
+  select(iyear, region, casualties)  %>%
+  filter(casualties>0) %>%
+  group_by(iyear, region) %>%
+  summarize(casualties_num = sum(casualties)) %>%
+  na.omit()
+colnames(global_region) <- c("Year", "Region", "Casualties_Number")
+```
+
+```{r, echo=FALSE}
+library(treemap)
+treemap(global_region, 
+        index=c("Year"), 
+        vSize = "Casualties_Number",  
+        palette = "Reds",  
+        title="Casualties in Global Terrorism", 
+        fontsize.title = 14 
+)
+```
+
+Then we visualize the casualties from terrorist attack in each year at the five continents: Africa, Americas, Asia, Europe, Oceania. We canfind that Asia has the highest casualties. Bacause West Asia is a region where terrorism is very active in the world. And Americas reach at peak at 2001, which was caused by the 911 events. 
+
+```{r,echo=FALSE, message=FALSE}
+library(ggplot2)
+library(ggthemes)
+plot_a <- ggplot(global_region, aes(x=Year, y=Casualties_Number, color=Region)) + geom_point() + geom_line() + theme_tufte() + labs(x = "Year", y = "Casualties Number", title = "Worldwide Casualties Terrorist Attacks")+ 
+  theme(legend.title=element_blank(), #remove legend title
+        plot.title = element_text(face = "bold", color = "black", size = 10)) + theme_minimal()
+```
+
+```{r, echo=FALSE}
+library(plotly)
+ggplotly(plot_a)
+```
+
+## Casualty cluster map
+
+According to the following plot, we can see the total casualties condition in the world. We can get their distribution, detailed information include when the events occur, the country and city of the events, the attach type, the weapon used in the attack and number of casualties.
+
+
+```{r, echo=FALSE}
+global_t <- global %>%
+  select(iyear, country_txt, city, latitude, longitude, attacktype1_txt, weapsubtype1_txt, casualties) %>%
+  filter(casualties >0) %>%
+  na.omit()
+```
+```{r, echo=FALSE}
+library(leaflet)
+content_c <- sprintf("When:", global_t$iyear, "<br/>",
+                 "Country:", global_t$country_txt, "<br/>",
+                 "City:", global_t$city, "<br/>",
+                 "Attach Type:", global_t$attacktype1_txt, "<br/>",
+                 "Weapon:", global_t$weapsubtype1_txt, "<br/>",
+                 "Number of Casualties:", global_t$casualties,"<br/>")
+
+leaflet(global_t) %>%
+  addTiles() %>%
+  addMarkers(lat=global_t$latitude, lng=global_t$longitude, clusterOptions = markerClusterOptions(),popup= content_c)
+```
+
+## World Map for number of casualities
+
+Then we visualize the severe condition of terrorism all over the world. The darker the color, the deeper the damage. One of the interesting thing is that Antarctica have the third level of severity, which have near 2276 casualties.  
+
+```{r, echo=FALSE}
+global_c <- global %>%
+  select(iyear, country_txt, casualties)  %>%
+  filter(casualties>0) %>%
+  group_by(country_txt) %>%
+  summarize(casualties_num = sum(casualties))
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(rgdal)
+world <- readOGR("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/countries.geojson")
+```
+
+```{r, echo=FALSE}
+bins <- c(0,100,1000,10000,100000,Inf)
+pal <- colorBin("YlOrRd", domain = global_c$casualties_num, bins = bins)
+content_cc <- paste("Country:", world$ADMIN, "<br/>",
+                 "Number of Casualties:", global_c$casualties_num,"<br/>") %>%
+  lapply(htmltools::HTML)
+
+leaflet(world) %>%
+  addTiles() %>%
+  setView( lat=10, lng=0 , zoom=0.5) %>%
+  addPolygons(
+  fillColor = ~pal(global_c$casualties_num),
+  weight = 1,
+  opacity = 1,
+  color = "white",
+  dashArray = "3",
+  fillOpacity = 0.7,
+  label = content_cc) %>% 
+  addLegend(pal = pal, values = ~global_c$casualities_num, opacity = 0.5, title = "Casualties",
+                position = "bottomright")
+
+```
+
+## Attack Type
+
+We visualize the attack type in global terrorism, we find out that the top 2 attack types are bombing/explosion and armed assault. 
+
+```{r, echo=FALSE}
+global_a <- global %>%
+  select(attacktype1_txt) %>%
+  group_by(attacktype1_txt) %>%
+  summarize(num_attack = n()) %>%
+  mutate(percent = round(num_attack/sum(num_attack)*100)) %>%
+  filter(percent > 0)
+percent_by_type <-global_a$percent
+names(percent_by_type) <- global_a$attacktype1_txt
+```
+
+```{r, echo=FALSE}
+library(waffle)
+```
+
+```{r, echo=FALSE}
+waffle(percent_by_type,rows = 8) + labs(title = "Attacks by type") + scale_color_manual(
+    values = "Set1")
+```
+
+## Target Type
+
+It's unsurprising that private citizens and property are the most frequently attacked by terrorists. Military  and police are also highly vulnerable.
+
+```{r echo=FALSE}
+incidents %>% filter(targtype1_txt != "") %>% group_by(targtype1_txt) %>% summarise(nt = length(targtype1_txt)) %>% ungroup() -> incidents_t
+ggplot(data = incidents_t, aes(x = reorder(targtype1_txt,nt), y = nt)) +  
+  geom_bar(stat="identity", fill="indianred1", colour="black") + theme_minimal() +
+  coord_flip() + labs(title="Target Type Distribution", x ="Target type", y = "Number of events")
+```
+
+## Claim Type
+
+If we use pie chart to examine the claim mode types, we can find that personal claims and website are the most frequent (28.5% and 24.4%), while calls before incident and letter are the least (0.9% and 1.6%).
+
+```{r include=FALSE}
+incidents %>% filter(claimmode_txt != "") %>% group_by(claimmode_txt) %>% summarise(nclm = length(claimmode_txt)) %>% ungroup() -> incidents_c
+colnames(incidents_c) = c("Type","Number")
+
+label_value <- paste('(', round(incidents_c$Number/sum(incidents_c$Number) * 100, 1), '%)', sep = '')
+label <- paste(incidents_c$Type, label_value, sep = '')
+
+ggplot(data = incidents_c, aes(x = 'Content', y = Number, fill = Type))+  
+  geom_bar(stat="identity",position = 'stack', width = 1) +
+  coord_flip() + labs(title="Claim Mode Types", x ="", y = "") + coord_polar(theta = 'y') + theme(axis.text = element_blank()) +theme(panel.grid=element_blank(),panel.border=element_blank(),axis.line=element_line(size=0,colour='white')) + geom_text(stat="identity", aes(label = scales::percent(incidents_c$Number/sum(incidents_c$Number)), x = 1.6), size=4, position=position_stack(vjust = 0.5)) 
+```
+```{r echo=FALSE}
+knitr::include_graphics("C:/Users/mmahe/Desktop/pie.png")
+```
+
+## Summary of attacks
+
+The wordcloud shows the most frequent words that used in summarizing a terrorism attack.
+
+In the summary, many official words such response, group, claim, injure, incid are mentioned.
+
+To be noticed, we can the "Iraq" appears many times in those summaries. That could be an evidence that this countries had been under the attack for so many years.
+
+```{r echo=FALSE}
+d %>% filter(!is.na(summary)) -> df
+df %>% filter(summary != "") -> df
+text <- as.data.frame(sample(df$summary, nrow(df)/100))
+colnames(text)[1] <- "summary"
+
+summary <- sapply(text$summary, function(row) iconv(row, "latin1", "ASCII", sub=""))
+summaryCorpus <- paste(unlist(summary), collapse =" ")
+summaryCorpus <- Corpus(VectorSource(summaryCorpus))
+summaryCorpus <- tm_map(summaryCorpus, PlainTextDocument)
+summaryCorpus <- tm_map(summaryCorpus, removePunctuation)
+summaryCorpus <- tm_map(summaryCorpus, content_transformer(tolower))
+summaryCorpus <- tm_map(summaryCorpus, removeWords, stopwords("english"))
+summaryCorpus <- tm_map(summaryCorpus, stemDocument)
+summary.dtm <- DocumentTermMatrix(summaryCorpus)
+
+summary_dtm <- as.matrix(summary.dtm)
+summary.tdm <- TermDocumentMatrix(summaryCorpus)
+summary.m <- as.matrix(summary.tdm)
+summary.v <- sort(rowSums(summary.m),decreasing=TRUE)
+summary.d <- data.frame(word = names(summary.v),freq=summary.v)
+```
+```{r include=FALSE}
+summary_cloud <- select(summary.d, word, freq ) %>% filter(freq >=20)
+wordcloud2(data=summary_cloud, size=0.5, color = "lightcoral", figPath = "C:/Users/mmahe/Downloads/iconfinder_bomb__tint__weapon__fire__blast_2992195.png")
+```
+```{r echo=FALSE}
+knitr::include_graphics("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/Final Project/summarywordcloud.png")
+```
+
+## 2). The Potential Relationship between terrorism and GDP, Happiness Score and Military Spending
+
+## Trend of global attacks, GDP, and happiness score.
+
+This line graph shows the general trends for the number of total attacks, GDP, and the happiness score worldwide.
+
+Starting from 1980s, the total number of terrorism attacks keeps increasing and reaches its peak in 2014.
+
+The global average GDP, no doubt, is getting better over the years. And it seems like GDP and total number of attacks are correlated in a positive way.
+
+For the happiness score, the official collection began in 2005 at the highest level and then fell for the next few years.
+
+```{r echo=FALSE}
+attack_year <- d %>% mutate(count = 1) %>% group_by(iyear) %>% dplyr::summarize(total_attacks_year = sum(count, na.rm = T)) %>% select(Year = iyear, total_attacks_year)
+```
+```{r echo=FALSE}
+hap_year <- happiness %>% group_by(year) %>% dplyr::summarize(average_happiness = mean(Positive.affect, na.rm=T)) %>% select(Year = year, average_happiness)
+```
+```{r echo=FALSE}
+
+aaa <- read_csv("C:/Users/mmahe/Desktop/weo.csv")
+aaa <- as.data.frame(t(aaa))
+aaa$Year = row.names(aaa)
+row.names(aaa) = NULL
+aaa %>% select(Year, "average_gdp"= V1) -> aaa
+gdp_year <- aaa
+
+sum_year <- merge(attack_year, hap_year, by = "Year", all = TRUE)
+
+sum_year <- merge(sum_year, gdp_year, by = "Year")
+sum_year <- select(sum_year, Year, "Total Attacks" = total_attacks_year, "Average GDP" = average_gdp, "Average Happiness" = average_happiness)
+```
+```{r echo=FALSE}
+library(reshape2)
+dat.m <- melt(sum_year, "Year")
+ggplot(dat.m, aes(Year, value, colour = variable)) + geom_line() +
+facet_wrap(~ variable, ncol = 1, scales = "free_y") + theme_minimal() + theme(legend.text = element_text(size = 11, color = "gray10")) + theme_minimal()
+```
+
+
+
+## The relationship between GDP (happiness score) and terrorism attacks.
+
+To find out a clear relationship among those indices, we generate a scatter plot with total attacks on the x-aixs and average GDP on the y-axis. The size of each circle represents the average happpiness score in each country.
+
+We can observe a slight negative relationship between GDP and the frequency of terrorism attacks. A country cannot get a better development if it is under the threat of too many attacks. One extreme case is Iraq. This country has been through over 20000 attacks over the years. And its GDP is quite low compare to other countries with less terrorism events.
+
+And people in the countries with less attacks usually feel happier. The bubble size of USA, China, Japan, Germany is clearly higher than the size of India, Pakistan, Afghanistan, and Iraq.
+
+```{r echo=FALSE}
+gdp_country <- gdp %>% mutate(average_gdp = rowMeans(gdp[,22:40], na.rm = TRUE)) %>% select(Country, average_gdp) %>% arrange(Country)
+```
+```{r echo=FALSE}
+hap_country <- happiness %>% group_by(Country.name) %>% dplyr::summarize(average_happiness = mean(Positive.affect, na.rm = TRUE)) %>% select(Country = Country.name, average_happiness)
+```
+```{r echo=FALSE}
+attack_country <- d %>% filter(iyear>=2000) %>% mutate(count = 1) %>% group_by(country_txt) %>% dplyr::summarize(total_attacks = sum(count)) %>% select(Country = country_txt, total_attacks)
+```
+```{r echo=FALSE}
+region <- select(d, Country = country_txt, Region = region_txt)
+region <- region %>% distinct()
+sum_country <- merge(attack_country, hap_country, by = "Country", sort=TRUE)
+sum_country <- merge(sum_country, gdp_country, by = "Country", sort=TRUE)
+sum_country <- merge(sum_country, region, by = "Country")
+sum_country$Region <- countrycode(sourcevar = sum_country[, "Country"],
+                            origin = "country.name",
+                            destination = "continent")
+
+```
+
+```{r echo=FALSE}
+pointsLabel <- c("Russia", "Iraq", 
+   "Afghanistan", "India", "Italy", "China", "France", "United States", 
+   "Germany", "United Kingdom",
+   "Japan","Pakistan", "Philippines", "Somalia",  "Syria", "Libya", "Nigeria", "Thailand", "Yemen")
+sum_country <- sum_country %>% filter(average_gdp >= 10)
+```
+```{r echo=FALSE}
+pc1 <- ggplot(sum_country, aes(x = total_attacks, y = average_gdp, color = Region)) +               geom_point(shape = 1, size = ((sum_country$average_happiness)*10)^1/2, stroke=2) + 
+       geom_smooth(
+                 
+                 formula = y ~ 1/x,
+                 se = FALSE,
+                 color = "red") +
+       geom_text_repel(aes(label = Country),
+              color = "gray20", size = 3,
+              data = filter(sum_country, Country %in% pointsLabel),
+              force = 10,
+              min.segment.length = unit(0.1, "lines")) +
+       ggtitle("Terrorism Attacks and GDP") +
+       theme_minimal() +
+       guides(colour = guide_legend(nrow = 1)) +
+       theme(text = element_text(color = "gray20"),
+          legend.position = c("top"),
+          legend.direction = "horizontal",
+          legend.justification = 0.1,
+          legend.text = element_text(size = 11, color = "gray10"),
+          legend.key.height=unit(0.5,"line"),
+          legend.key.width=unit(2,"line"),    
+          axis.text = element_text(face = "italic"),
+          axis.title.x = element_text(vjust = 2), 
+          axis.title.y = element_text(vjust = 2), 
+          axis.ticks.y = element_blank(), 
+          axis.line = element_line(color = "gray40", size = 0.5),
+          axis.line.y = element_blank(),
+          panel.grid.major = element_line(color = "gray50", size = 0.5),
+          panel.grid.major.x = element_blank(),
+          plot.margin = margin(t = 4, r = 2, b = 4, l = 4, unit = "pt"),
+          plot.title = element_text(face = "bold", color = "black", size = 20)
+          ) + labs(x="Total number of terrorism attacks", y="Average GDP (U.S Dollars, Billions)" )
+  
+pc1
+```
+
+Then we exclude the outlier (US and Iraq) and make the plot interactive.
+
+```{r echo=FALSE}
+g_sum_country <- sum_country %>% filter(total_attacks %in% 10:20000) %>% filter(average_gdp<10000) %>% filter()
+pc2 <- ggplot(g_sum_country, aes(x = total_attacks, y = average_gdp, color = Region, label = Country, label2=average_happiness)) +               geom_point(shape = 1, size = 2.5, stroke=2) + 
+       geom_smooth(
+                 
+                 formula = y ~ x,
+                 se = FALSE,
+                 color = "red") +
+       ggtitle("Terrorism Attacks and GDP") +
+       theme_minimal() +
+       theme(text = element_text(color = "gray20"),
+          axis.text = element_text(face = "italic"),
+          axis.title.x = element_text(vjust = -1), 
+          axis.title.y = element_text(vjust = 2), 
+          axis.ticks.y = element_blank(), 
+          axis.line = element_line(color = "gray40", size = 0.5),
+          axis.line.y = element_blank(),
+          panel.grid.major = element_line(color = "gray50", size = 0.5),
+          panel.grid.major.x = element_blank(),
+          plot.title = element_text(face = "bold", color = "black", size = 20)
+          ) + labs(x="Total number of terrorism attacks", y="Average GDP (U.S Dollars, Billions)" )
+ggplotly(pc2)
+```
+
+## Changing trends of GDP and total attacks over the years.
+
+The scatter plot here shows how the GDP and total attacks change over the years in each country.
+
+We can see from 1980 to 2000, most countries had very few terrorism cases since all the points gather around the x-axis.
+
+However, starting from 2000, some points are getting upward along the y-axis, which means more attcaks happened in the last two decades.
+
+And recently, the points is getting more loose since the GDP and total attacks differences is larger among the countries. 
+
+```{r echo=FALSE}
+pop <- read_csv("C:/Users/mmahe/Documents/pop.csv")
+row.names(pop) = NULL
+row.names(pop) = pop$X1
+pop = pop %>% select(-1)
+
+```
+```{r echo=FALSE}
+colnames(pop) <- str_sub(colnames(pop), 1L, -25L)
+rownames(pop) <- str_sub(rownames(pop), 1L, -7L)
+pop <- as.data.frame(t(pop))
+pop <- rownames_to_column(pop, "Country")
+```
+```{r echo=FALSE}
+pop <- pop %>% 
+  gather(-Country, key = "Year", value = "Population")
+```
+```{r echo=FALSE}
+gdp_c_y <- gdp %>% gather(-Country, key = "Year", value = "GDP")
+```
+```{r echo=FALSE}
+attacks_c_y <- d %>%  mutate(count = 1) %>% group_by(iyear, country_txt) %>% dplyr::summarize(total_attacks_year = sum(count, na.rm = T)) %>% select(Year = iyear, Country = country_txt, total_attacks_year)
+```
+```{r echo=FALSE}
+sum_c_y <- merge(attacks_c_y, pop, by=c("Country","Year"))
+sum_c_y <- merge(sum_c_y, gdp_c_y, by=c("Country","Year"))
+sum_c_y[is.na(sum_c_y)] <- NA
+```
+```{r echo=FALSE}
+sum_c_y$Region <- countrycode(sourcevar = sum_c_y[, "Country"],
+                            origin = "country.name",
+                            destination = "continent")
+```
+```{r echo=FALSE}
+p <- ggplot(sum_c_y, aes(x = log(GDP), y=total_attacks_year, size = Population, colour = Region)) +
+  geom_point(alpha = 0.7, show.legend = TRUE) +
+  labs(title = "GDP and terrorism attacks over the years",subtitle = 'Year: {as.integer(frame_time)}', x = 'Log(GDP)', y = 'Total Attacks') + theme_minimal() +
+  transition_time(Year) +
+  ease_aes('linear')
+```
+```{r echo=FALSE}
+knitr::include_graphics("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/Final Project/panim.gif")
+```
+
+## Military Expenditure and Terrorism Attacks
+
+We also consider a country could be safer if the government spend more on their national defense.
+
+The map here show the average military expenditure in most countries in the world.
+
+The bomb icon locate 50 cities with most number of attacks from the last century.
+
+We can see the most dangerour cities are found in the countries with a medium or even low military spending. That could be a reason why they experienced more attacks.
+
+And we also observe many attacks took place in cities like New York City, Paris, and Madrid. They are the capital of some developed country but still become quite dangerours. Those cities do not have the issue about insufficient military expenditure. Many political, financial, or cultural reasons are related to these kind of attacks.
+
+```{r include=FALSE}
+military <- read_csv("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/Military Expenditure.csv")
+military_country <- military  %>% mutate(average_military_exp = rowMeans(military[,5:63], na.rm = TRUE)) %>% filter(Type == "Country") %>% select(Country=Name, average_military_exp) %>% arrange(Country)
+colnames(military_country)[1] <- "ADMIN"
+military_country$ADMIN <- countrycode(military_country$ADMIN, origin = 'country.name', destination = "country.name" )
+military_country$ADMIN <- gsub("United States", "United States of America", military_country$ADMIN)
+military_country$ADMIN <- gsub("Tanzania", "United Republic of Tanzania", military_country$ADMIN)
+military_country$ADMIN[124] <- "Myanmar"
+military_country$ADMIN <- gsub("Serbia", "Republic of Serbia", military_country$ADMIN)
+military_country$ADMIN <- gsub("Congo - Kinshasa", "Democratic Republic of the Congo", military_country$ADMIN)
+military_country$ADMIN <- gsub("Congo - Brazzaville", "Republic of Congo", military_country$ADMIN)
+military_country$ADMIN <- gsub("Côte d’Ivoire", "Ivory Coast", military_country$ADMIN)
+military_country$ADMIN <- gsub("Czechia", "Czech Republic", military_country$ADMIN)
+
+```
+```{r include=FALSE}
+us <- rgdal::readOGR("C:/Users/mmahe/Downloads/gz_2010_us_040_00_500k.kml")
+```
+```{r include=FALSE}
+country <- rgdal::readOGR("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/countries.geojson")
+```
+```{r echo=FALSE}
+combined <- merge(x=country, y=military_country, by="ADMIN")
+```
+```{r echo=FALSE}
+city <- d %>% filter(iyear >= 1960) %>% filter(city != "Unknown") %>% mutate(count = 1) %>% group_by(city) %>% dplyr::summarize(total_attacks_year = sum(count, na.rm = T)) %>% select(city, total_attacks_year) %>% arrange(desc(total_attacks_year)) %>% filter(row_number()<=50)
+```
+
+```{r include=FALSE}
+register_google(key = "AIzaSyClmv827-d4vEcZgW2ATp1fq5zMPb9kE5g")
+a <- as.data.frame(geocode(as.character(city$city)))
+city <- cbind(city,a)
+```
+
+```{r echo=FALSE}
+bins <- c(0, 10000000, 100000000, 1000000000, 10000000000, 100000000000, Inf)
+
+pal_country <- colorBin("YlOrRd", domain = combined$average_military_exp, bins = bins)
+labels <- sprintf(
+  "<strong>%s</strong><br/> Average Military Expenditure since 2000: %g",
+  combined$ADMIN, combined$average_military_exp
+) %>% lapply(htmltools::HTML)
+
+m <- leaflet(combined) %>% addTiles('http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png') %>% addProviderTiles("MapBox", options = providerTileOptions(
+    id = "mapbox.light",
+    accessToken = Sys.getenv('MAPBOX_ACCESS_TOKEN'))) %>% addPolygons(
+  fillColor = ~pal_country(average_military_exp),
+  weight = 2,
+  opacity = 1,
+  color = "white",
+  dashArray = "3",
+  fillOpacity = 0.7,
+  highlight = highlightOptions(
+    weight = 5,
+    color = "#666",
+    dashArray = "",
+    fillOpacity = 0.7,
+    bringToFront = TRUE),
+  label = labels) %>% addLegend(pal = pal_country, values = ~average_military_exp, opacity = 0.7, title = "Average Military Expenditure:<br/>(Current US dollar)",
+  position = "bottomright")
+```
+```{r echo=FALSE}
+Ticon <- icons(
+  iconUrl = "C:/Users/mmahe/Downloads/iconfinder_Army_1-06_2760624.png",
+  iconWidth = 15, iconHeight = 15,
+  iconAnchorX = 7.5, iconAnchorY = 8.5
+  )
+
+content_city = paste("City Name:",city$city,"<br/>",
+                 "Total number of attacks", city$total_attacks_year,"<br/>")
+m <- m %>% addMarkers(data=city, icon=Ticon, popup = content) 
+m
+
+```
+
+## *Part 2: The terrorism attacks in the US*
+
+```{r echo=FALSE}
+library(knitr)
+``` 
+
+## Total events numbers by year
+
+In general, we can find an obvious downward trend in the total number of terrorist attacks. However, there's a slight upward trend after 2011. 
+
+```{r echo=FALSE}
+#Total events numbers by year
+by.year <- incidents_us %>% 
+  group_by(iyear) %>%
+  summarize(num = length(iyear))
+
+p1 = ggplot(by.year, aes(x = iyear, y = num)) + geom_line(color = 'indianred1', size = 1) + geom_point(size=2, color = 'indianred1') + ggtitle("Total Number of terrorist events by Year") + theme(plot.title = element_text(hjust = 0.5)) + labs(x="Year", y="Number of events") + theme_minimal()
+p1
+```
+
+## Incident numbers by types
+
+As for the attack types, bombing or explosion happened the most frequently around 1970s and 1980s. After 1990, it seemed that facility/infrastructure attacks became more frequent.
+
+```{r echo=FALSE}
+library(plotly)
+#Incident numbers by types
+incidents_us %>% group_by(iyear,attacktype1_txt) %>% summarise(num = length(attacktype1_txt)) %>% ungroup() -> incidents_bytype
+colnames(incidents_bytype) = c("Year","Type","Number")
+p3 = ggplot(data = incidents_bytype, aes(x = Year, y = Number, colour = Type)) +       
+   geom_line() + geom_point() + labs(title ="Incident numbers in US by types") + theme_minimal()
+p3 = ggplotly(p3) 
+p3
+```
+
+## Tree map of killing numbers in the US
+
+As for the casualties in the US by year, undoubtedly the highest number was in 2001 because 911 occurred in that year.
+
+```{r echo=FALSE}
+#Tree map of killing numbers in the US
+library(treemap)
+incidents_us %>% filter(nkill > 0) -> incidents_k
+treemap(incidents_k, 
+        index=c("iyear"), 
+        vSize = "nkill",  
+        palette = "Reds",  
+        title="Killing Numbers of Terrorism in the US", 
+        fontsize.title = 14 
+)
+```
+
+## Incident numbers by state
+
+When we look at the distribution among states, we can find that California, New York, Puerto Rico and Florida have the highest terrorist attack frequencies.
+
+```{r echo=FALSE}
+#Incident numbers by state
+by.state <- incidents_us %>% 
+  group_by(provstate) %>%
+  summarize(num = length(provstate))
+treemap(by.state, 
+        index=c("provstate"), 
+        vSize = "num",  
+        palette = "Reds",  
+        title="Terrorism in different states of the US", 
+        fontsize.title = 14 
+)
+```
+
+## US map for the number of attacks
+
+In US, each states had also been through terrorism attacks more or less. The map shows the frequency in each state.
+
+And similiarly, the bomb icon represent 10 US cities with most attacks in the past few years.
+
+Not surpurisingly, New York state and NYC is one of the cities with most number of attacks due to the 9-11. And for some famous cities like LA and Seattle, we all heard about some news about serious terrorism events since 2010s in those location.
+
+```{r echo=FALSE}
+state_attack <- d %>% mutate(count = 1) %>% filter(country_txt == "United States") %>% group_by(provstate) %>%  dplyr::summarize(total_attacks = sum(count, na.rm = T)) %>% select("Name" = provstate, total_attacks)
+combined1 <- merge(us, state_attack, by = "Name")
+```
+```{r echo=FALSE}
+bins1 <- c(0, 10, 50, 100, 200, 300, 500, Inf)
+
+pal_state <- colorBin("YlOrRd", domain = combined1$total_attacks, bins = bins1)
+labels <- sprintf(
+  "<strong>%s</strong><br/> Total number of attacks: %g",
+  combined1$Name, combined1$total_attacks
+) %>% lapply(htmltools::HTML)
+
+m1 <- leaflet(combined1) %>% addTiles('http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png') %>% addProviderTiles("MapBox", options = providerTileOptions(
+    id = "mapbox.light",
+    accessToken = Sys.getenv('MAPBOX_ACCESS_TOKEN'))) %>% addPolygons(group="State",
+  fillColor = ~pal_state(total_attacks),
+  weight = 2,
+  opacity = 1,
+  color = "white",
+  dashArray = "3",
+  fillOpacity = 0.7,
+  highlight = highlightOptions(
+    weight = 5,
+    color = "#666",
+    dashArray = "",
+    fillOpacity = 0.7,
+    bringToFront = TRUE),
+  label = labels) %>% addLegend(pal = pal_state, values = ~total_attacks, opacity = 0.7, title = "Total number of attacks:",
+  position = "bottomright")
+
+```
+
+```{r echo=FALSE}
+us_city <- d %>% mutate(count = 1) %>% filter(country_txt == "United States") %>% group_by(city) %>%  dplyr::summarize(total_attacks = sum(count, na.rm = T), killed = sum(nkill, na.rm=T)) %>% select(city, total_attacks, killed) %>% arrange(desc(total_attacks)) %>% filter(row_number()<=10)
+```
+```{r echo=FALSE}
+register_google(key = "AIzaSyClmv827-d4vEcZgW2ATp1fq5zMPb9kE5g")
+b <- as.data.frame(geocode(as.character(us_city$city)))
+us_city <- cbind(us_city,b)
+```
+```{r echo=FALSE}
+content1 = paste("City Name:",us_city$city,"<br/>",
+                 "The number of fatalities", us_city$killed,"<br/>")
+Ticon <- icons(
+  iconUrl = "C:/Users/mmahe/Downloads/iconfinder_Army_1-06_2760624.png",
+  iconWidth = 8, iconHeight = 8,
+  iconAnchorX = 7.5, iconAnchorY = 8.5
+  )
+
+m1 <- m1 %>% addMarkers(data=us_city, icon = Ticon, popup = content1)
+
+m1
+```
+
+## Sentiment Analysis in 2001.
+
+According to the previous result, we can NYC is the most severe city due to the famous terrorism attack: 9-11. This event caused thousands of people died or injuried, which is considered as the most serious terror attack in the America's history. We'd like to analysis the sentiment changes in 2001 to see whether people's feeling affected by this event.
+
+We use the New York Times API to collect its articles that are related to "terrorism" from Jan, 2001 to Dec, 2001.
+
+Using the `afinn` dictionary to detect the overall sentiment of all official reports for each month in 2001.
+
+The results shows the tone were always negative when the news are about terrorism. However, in September, the NY Times tended to be least negative, which means it might use more positive words at that month to supoort and encourage more American people.
+
+This finding suggests that the media can have a big influence on the public by the word usage. During the hard time, NY Times also chose to use more words to make US citizens to cheer up.
+
+```{r echo=FALSE}
+search_article <- function(topic='new york', searchdate=20191231){
+  library(httr)
+  library(stringr)
+  library(tidyr)
+  library(dplyr)
+
+  if(!is.character(topic)){
+    stop("input must be a character")
+  }
+  if(!is.numeric(searchdate)){
+    stop("input must be a numeric")
+  }
+
+  abstract <- list()
+  web_url <- list()
+  lead_paragraph <- list()
+  headline <- list()
+  public_date <- list()
+  author <- list()
+  words <- list()
+  category <- list()
+  search_url <- "https://api.nytimes.com/svc/search/v2/articlesearch.json"
+  query_paramater <- list(q=topic,end_date=searchdate,'api-key'="mLEjzAbR3Z46zESM9oDm7nURjsDyqNKk")
+  search_r <- GET(search_url, query=query_paramater)
+  c <- content(search_r)
+  for(i in 1:10){
+    abstract[[i]] <- c$response$docs[[i]]$abstract
+    web_url[[i]] <- c$response$docs[[i]]$web_url
+    lead_paragraph[[i]] <- c$response$docs[[i]]$lead_paragraph
+    headline[[i]] <- c$response$docs[[i]]$headline$main
+    public_date[[i]] <- c$response$docs[[i]]$pub_date
+    words[[i]] <- c$response$docs[[i]]$word_count
+    category[[i]] <- c$response$docs[[i]]$news_desk
+    category[sapply(category, function(x){length(x)==0})] <- NA
+  }
+
+  output <- data.frame('category' = unlist(category), 'headline'=unlist(headline), 'abstract' = unlist(abstract), 'lead_paragraph' = unlist(lead_paragraph), 'url' = unlist(web_url), 'date' = unlist(public_date), 'words' = unlist(words))
+
+  public_date <- str_extract(output[,6], "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]") 
+  output$date <- public_date
+  return(output)}
+```
+
+
+```{r echo=FALSE}
+jan <- search_article("terrorism", 20010131)
+jan_text <- jan %>% select("Jan" = abstract)
+jan_text$Jan <- as.character(jan_text$Jan)
+janCorpus <- Corpus(VectorSource(jan_text$Jan))
+janCorpus <- tm_map(janCorpus, PlainTextDocument)
+janCorpus <- tm_map(janCorpus, removePunctuation)
+janCorpus <- tm_map(janCorpus, content_transformer(tolower))
+janCorpus <- tm_map(janCorpus, removeWords, stopwords("english"))
+jan_text = data.frame(text = sapply(janCorpus, as.character), stringsAsFactors = FALSE) %>%
+  unnest_tokens(word, text) %>% mutate("Month" = 1)
+```
+```{r echo=FALSE}
+feb <- search_article("terrorism", 20010228)
+feb_text <- feb %>% select("Feb" = abstract)
+feb_text$Feb <- as.character(feb_text$Feb)
+febCorpus <- Corpus(VectorSource(feb_text$Feb))
+febCorpus <- tm_map(febCorpus, PlainTextDocument)
+febCorpus <- tm_map(febCorpus, removePunctuation)
+febCorpus<- tm_map(febCorpus, content_transformer(tolower))
+febCorpus <- tm_map(febCorpus, removeWords, stopwords("english"))
+feb_text = data.frame(text = sapply(febCorpus, as.character), stringsAsFactors = FALSE)%>%
+  unnest_tokens(word, text) %>% mutate("Month" = 2)
+```
+```{r echo=FALSE}
+mar <- search_article("terrorism", 20010331)
+mar_text <- mar %>% select("Mar" = abstract)
+mar_text$Mar <- as.character(mar_text$Mar)
+marCorpus <- Corpus(VectorSource(mar_text$Mar))
+marCorpus <- tm_map(marCorpus, PlainTextDocument)
+marCorpus <- tm_map(marCorpus, removePunctuation)
+marCorpus <- tm_map(marCorpus, content_transformer(tolower))
+marCorpus <- tm_map(marCorpus, removeWords, stopwords("english"))
+mar_text = data.frame(text = sapply(marCorpus, as.character), stringsAsFactors = FALSE) %>%
+  unnest_tokens(word, text) %>% mutate("Month" = 3)
+
+```
+```{r echo=FALSE}
+apr <- search_article("terrorism", 20010430)
+apr_text <- apr %>% select("Apr" = abstract)
+apr_text$Apr <- as.character(apr_text$Apr)
+aprCorpus <- Corpus(VectorSource(apr_text$Apr))
+aprCorpus <- tm_map(aprCorpus, PlainTextDocument)
+aprCorpus <- tm_map(aprCorpus, removePunctuation)
+aprCorpus <- tm_map(aprCorpus, content_transformer(tolower))
+aprCorpus <- tm_map(aprCorpus, removeWords, stopwords("english"))
+apr_text = data.frame(text = sapply(aprCorpus, as.character), stringsAsFactors = FALSE) %>%
+  unnest_tokens(word, text) %>% mutate("Month" = 4)
+```
+```{r echo=FALSE}
+may <- search_article("terrorism", 20010531)
+may_text <- may %>% select("May" = abstract)
+may_text$May <- as.character(may_text$May)
+mayCorpus <- Corpus(VectorSource(may_text$May))
+mayCorpus <- tm_map(mayCorpus, PlainTextDocument)
+mayCorpus <- tm_map(mayCorpus, removePunctuation)
+mayCorpus <- tm_map(mayCorpus, content_transformer(tolower))
+mayCorpus <- tm_map(mayCorpus, removeWords, stopwords("english"))
+may_text = data.frame(text = sapply(mayCorpus, as.character), stringsAsFactors = FALSE) %>%
+  unnest_tokens(word, text) %>% mutate("Month" = 5)
+```
+```{r echo=FALSE}
+jun <- search_article("terrorism", 20010630)
+jun_text <- jun %>% select("Jun" = abstract)
+jun_text$Jun <- as.character(jun_text$Jun)
+junCorpus <- Corpus(VectorSource(jun_text$Jun))
+junCorpus <- tm_map(junCorpus, PlainTextDocument)
+junCorpus <- tm_map(junCorpus, removePunctuation)
+junCorpus <- tm_map(junCorpus, content_transformer(tolower))
+junCorpus <- tm_map(junCorpus, removeWords, stopwords("english"))
+jun_text = data.frame(text = sapply(junCorpus, as.character), stringsAsFactors = FALSE) %>%
+  unnest_tokens(word, text) %>% mutate("Month" = 6)
+```
+```{r echo=FALSE}
+jul <- search_article("terrorism", 20010731)
+jul_text <- jul %>% select("Jul" = abstract)
+jul_text$Jul <- as.character(jul_text$Jul)
+julCorpus <- Corpus(VectorSource(jul_text$Jul))
+julCorpus <- tm_map(julCorpus, PlainTextDocument)
+julCorpus <- tm_map(julCorpus, removePunctuation)
+julCorpus <- tm_map(julCorpus, content_transformer(tolower))
+julCorpus <- tm_map(julCorpus, removeWords, stopwords("english"))
+jul_text = data.frame(text = sapply(julCorpus, as.character), stringsAsFactors = FALSE) %>%
+  unnest_tokens(word, text) %>% mutate("Month" = 7)
+```
+```{r echo=FALSE}
+aug <- search_article("terrorism", 20010831)
+aug_text <- aug %>% select("Aug" = abstract)
+aug_text$Aug <- as.character(aug_text$Aug)
+augCorpus <- Corpus(VectorSource(aug_text$Aug))
+augCorpus <- tm_map(augCorpus, PlainTextDocument)
+augCorpus <- tm_map(augCorpus, removePunctuation)
+augCorpus <- tm_map(augCorpus, content_transformer(tolower))
+augCorpus <- tm_map(augCorpus, removeWords, stopwords("english"))
+aug_text = data.frame(text = sapply(augCorpus, as.character), stringsAsFactors = FALSE) %>%
+  unnest_tokens(word, text) %>% mutate("Month" = 8)
+```
+```{r echo=FALSE}
+sep <- search_article("terrorism", 20010930)
+sep_text <- sep %>% select("Sep" = abstract)
+sep_text$Sep <- as.character(sep_text$Sep)
+sepCorpus <- Corpus(VectorSource(sep_text$Sep))
+sepCorpus <- tm_map(sepCorpus, PlainTextDocument)
+sepCorpus <- tm_map(sepCorpus, removePunctuation)
+sepCorpus <- tm_map(sepCorpus, content_transformer(tolower))
+sepCorpus<- tm_map(sepCorpus, removeWords, stopwords("english"))
+sep_text = data.frame(text = sapply(sepCorpus, as.character), stringsAsFactors = FALSE) %>%
+  unnest_tokens(word, text) %>% mutate("Month" = 9)
+```
+```{r echo=FALSE}
+oct <- search_article("terrorism", 20011031)
+oct_text <- oct %>% select("Oct" = abstract)
+oct_text$Oct <- as.character(oct_text$Oct)
+octCorpus <- Corpus(VectorSource(oct_text$Oct))
+octCorpus <- tm_map(octCorpus, PlainTextDocument)
+octCorpus <- tm_map(octCorpus, removePunctuation)
+octCorpus <- tm_map(octCorpus, content_transformer(tolower))
+octCorpus <- tm_map(octCorpus, removeWords, stopwords("english"))
+oct_text = data.frame(text = sapply(octCorpus, as.character), stringsAsFactors = FALSE) %>%
+  unnest_tokens(word, text) %>% mutate("Month" = 10)
+```
+```{r include=FALSE}
+nov_text <- read_csv("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/Final Project/nov.csv")
+```
+```{r echo=FALSE}
+dec_text <- read_csv("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/Final Project/dec.csv")
+```
+```{r echo=FALSE}
+text_2001 <- data.frame(rbind(jan_text, feb_text, mar_text, apr_text, may_text, jun_text, jul_text, aug_text, sep_text, oct_text, nov_text, dec_text)) %>% mutate(file = "NY times")
+```
+
+```{r echo=FALSE}
+t_sentiment <- inner_join(text_2001, get_sentiments("afinn")) %>% group_by(Month) %>% dplyr::summarize(net_sentiment = sum(value))
+```
+```{r echo=FALSE}
+ggplot(t_sentiment, aes(Month, net_sentiment, fill=as.character(Month))) + geom_col(show.legend = FALSE) + scale_x_discrete("Month", limits=c("Jan","Feb","Mar","Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")) + scale_y_continuous("Net Sentiment") + scale_fill_manual(values=c("#FF6666", "#FF6666", "#FF6666", "#FF6666", "#FF6666", "#FF6666", "#FF6666", "#FF6666", "#FF6666", "#FF6666", "#FF6666", "#66ffff")) + labs(title = "NY TIMES Sentiment in 2001")
+```
+```{r echo=FALSE}
+t_sentiment1 <- inner_join(text_2001, get_sentiments("bing")) %>% group_by(Month) %>% dplyr::summarize(net_sentiment = count(sentiment=="positive")-count(sentiment=="negative"))
+```
+
+## WordCloud in Sep, 2001
+
+Since NY Times had the highest net sentiment score in September, we are going to find what kind of words they used and compare the difference.
+
+In September, despite using some common words like "bomb", "terror" to decribe the attacks, NY Times were also trying to use some more positive words such as "support" to ease the public tension and provide more confidence. Also, the words "American", "nation", and "people" were mentioned several times in order to arouse people's national confidence.
+
+```{r echo=FALSE}
+search_article_m <- function(topic='new york', page=1, searchdate=20191231){
+  library(httr)
+  library(stringr)
+  library(tidyr)
+  library(dplyr)
+
+  if(!is.character(topic)){
+    stop("input must be a character")
+  }
+  if(!is.numeric(searchdate)){
+    stop("input must be a numeric")
+  }
+
+  abstract <- list()
+  web_url <- list()
+  lead_paragraph <- list()
+  headline <- list()
+  public_date <- list()
+  author <- list()
+  words <- list()
+  category <- list()
+  search_url <- "https://api.nytimes.com/svc/search/v2/articlesearch.json"
+  query_paramater <- list(q=topic, page=page, end_date=searchdate, 'api-key'="mLEjzAbR3Z46zESM9oDm7nURjsDyqNKk")
+  search_r <- GET(search_url, query=query_paramater)
+  c <- content(search_r)
+  for(i in 1:10){
+    abstract[[i]] <- c$response$docs[[i]]$abstract
+    web_url[[i]] <- c$response$docs[[i]]$web_url
+    lead_paragraph[[i]] <- c$response$docs[[i]]$lead_paragraph
+    headline[[i]] <- c$response$docs[[i]]$headline$main
+    public_date[[i]] <- c$response$docs[[i]]$pub_date
+    words[[i]] <- c$response$docs[[i]]$word_count
+    category[[i]] <- c$response$docs[[i]]$news_desk
+    category[sapply(category, function(x){length(x)==0})] <- NA
+  }
+
+  output <- data.frame('category' = unlist(category), 'headline'=unlist(headline), 'abstract' = unlist(abstract), 'lead_paragraph' = unlist(lead_paragraph), 'url' = unlist(web_url), 'date' = unlist(public_date), 'words' = unlist(words))
+
+  public_date <- str_extract(output[,6], "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]") #clean the date in the dataset
+  output$date <- public_date
+
+
+
+  return(output)}
+```
+```{r include=FALSE}
+sep <- read_csv("C:/Users/mmahe/Desktop/QMSS SPRING-2020/5063 - Data Visualization/Final Project/sep.csv")
+```
+```{r echo=FALSE}
+sep_text <- sep %>% select("text" = abstract)
+sep_text$text <- as.character(sep_text$text)
+sepCorpus <- Corpus(VectorSource(sep_text$text))
+sepCorpus <- tm_map(sepCorpus, PlainTextDocument)
+sepCorpus <- tm_map(sepCorpus, removePunctuation)
+sepCorpus <- tm_map(sepCorpus, content_transformer(tolower))
+sepCorpus <- tm_map(sepCorpus, removeWords, stopwords("english"))
+sepCorpus <- tm_map(sepCorpus, stemDocument)
+sep.dtm <- DocumentTermMatrix(sepCorpus)
+
+sep_dtm <- as.matrix(sep.dtm)
+
+sep.tdm <- TermDocumentMatrix(sepCorpus)
+sep.m <- as.matrix(sep.tdm)
+sep.v <- sort(rowSums(sep.m),decreasing=TRUE)
+sep.d <- data.frame(word = names(sep.v),freq=sep.v)
+```
+```{r include=FALSE}
+sep_word_cloud <- select(sep.d, word, freq ) %>% filter(freq >=0)
+wordcloud2(data=sep_word_cloud, size=0.5, color='random-dark', figPath = "C:/Users/mmahe/Desktop/911.png", minRotation = pi/8, maxRotation = pi/3, rotateRatio = 1 )
+```
+```{r echo=FALSE}
+knitr::include_graphics("C:/Users/mmahe/Desktop/911_wordcloud.png")
+```
+
+# **Conclusion:**
+
+This project aimed to find out some specific partterns of the global terrorism attacks. We can see much more serious cases are taking place since 2000s. And it could negatively affect people's safety, and the national development. Even though more efforts are made by countries and organizations to stop such a terrible incident, we still need more cooperation and negotiation to eliminate it.
+
